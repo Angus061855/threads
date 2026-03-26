@@ -24,20 +24,14 @@ def generate_post():
 [重複辯題問題]
 會 / 不會，留言告訴我
 
-規則：
+規則
 - 禁止用「——」
 - 禁止用「他笑著搖搖頭」「我愣住了」等AI感用語
 - 語氣像在跟朋友聊天，自然口語
 - 每段不超過3句
 - 辯題要讓人有強烈想表態的衝動
-- 標點符號使用全形：「，」「。」「？」「！」
-"""
-
----
-規則：
+- 標點符號使用全形
 - 辯論題要貼近真實生活，讓人有感
-- 描述句子像在跟朋友說話，不要文謅謅
-- 不要用「——」
 - 不要超過100字
 - 只輸出貼文內容，不要加任何說明、標題、編號
 """
@@ -57,7 +51,7 @@ def post_to_threads(content):
     }
     res = requests.post(url, params=params)
     creation_id = res.json().get("id")
-    print(f"📦 貼文容器建立成功：{creation_id}")
+    print(f"貼文容器建立成功：{creation_id}")
 
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     publish_params = {
@@ -65,13 +59,13 @@ def post_to_threads(content):
         "access_token": THREADS_ACCESS_TOKEN
     }
     pub_res = requests.post(publish_url, params=publish_params)
-    print(f"✅ Threads 發文成功！{pub_res.json()}")
+    print(f"Threads 發文成功！{pub_res.json()}")
     return True
 
 if __name__ == "__main__":
-    print("🤖 正在用 Gemini 產生情感辯論題...")
+    print("正在用 Gemini 產生情感辯論題...")
     content = generate_post()
-    print(f"📝 產生內容：\n{content}\n")
+    print(f"產生內容：\n{content}\n")
     success = post_to_threads(content)
     if success:
-        print("🎉 全部完成！")
+        print("全部完成！")

@@ -1,0 +1,32 @@
+name: Notion Threads Auto Post
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # 台灣時間 17:00
+    - cron: '0 12 * * *'  # 台灣時間 20:00
+    - cron: '0 16 * * *'  # 台灣時間 00:00（隔天凌晨）
+  workflow_dispatch:        # 手動觸發
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run auto post
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          DATABASE_ID: ${{ secrets.DATABASE_ID }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        run: python auto_post.py

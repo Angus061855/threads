@@ -9,7 +9,7 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 def generate_post():
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-prompt = """
+    prompt = """
 你是一位情感類 Threads 文案寫手。
 請產生一篇情感辯論題貼文，嚴格照以下格式輸出：
 
@@ -40,7 +40,6 @@ prompt = """
 - 只輸出貼文內容，不要加任何說明、標題、編號
 """
 
-
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt
@@ -48,7 +47,6 @@ prompt = """
     return response.text.strip()
 
 def post_to_threads(content):
-    # Step 1: 建立貼文容器
     url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     params = {
         "media_type": "TEXT",
@@ -59,7 +57,6 @@ def post_to_threads(content):
     creation_id = res.json().get("id")
     print(f"📦 貼文容器建立成功：{creation_id}")
 
-    # Step 2: 發布
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     publish_params = {
         "creation_id": creation_id,

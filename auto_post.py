@@ -1,36 +1,35 @@
 import os
 import requests
+import google.generativeai as genai
 
-NOTION_TOKEN = os.environ["NOTION_TOKEN"]
-NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
-def get_pending_post():
-    url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
-    headers = {
-        "Authorization": f"Bearer {NOTION_TOKEN}",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json"
-    }
-    body = {
-        "filter": {
-            "property": "狀態",
-            "select": {
-                "equals": "待發"
-            }
-        },
-        "page_size": 1
-    }
-    res = requests.post(url, headers=headers, json=body)
-    results = res.json().get("results", [])
-    if not results:
-        print("沒有待發文章")
-        return None
-    page = results[0]
-    page_id = page["id"]
-    content = page["properties"]["內容"]["rich_text"][0]["plain_text"]
-    return page_id, content
+def generate_post():
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    prompt = """
+你是一位情感類 Threads 文案寫手。
+請產生一篇情感辯論題貼文，格式如下：
+
+[一句引人思考的情感辯論題，結尾加問號]
+[2-3句情感共鳴的描述，每句換行]
+
+[重複同一句辯論題]
+✅ 會 / ❌ 不會，留言告訴我 👇
+
+規則：
+- 辯論題要貼近真實生活，讓人有感
+- 描述句子要有畫面感，像在跟朋友說話
+- 不要用「——」
+- 不要超過100字
+- 只輸出貼文內容，不要加任何說明
+"""
+
+    response = model.generate_content(prompt)
+    return response.text.strip()
 
 def post_to_threads(content):
     # Step 1: 建立貼文容器
@@ -54,31 +53,10 @@ def post_to_threads(content):
     print(f"✅ Threads 發文成功！{pub_res.json()}")
     return True
 
-def update_notion_status(page_id):
-    url = f"https://api.notion.com/v1/pages/{page_id}"
-    headers = {
-        "Authorization": f"Bearer {NOTION_TOKEN}",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json"
-    }
-    body = {
-        "properties": {
-            "狀態": {
-                "select": {
-                    "name": "已發"
-                }
-            }
-        }
-    }
-    requests.patch(url, headers=headers, json=body)
-    print("✅ Notion 狀態已更新為「已發」")
-
 if __name__ == "__main__":
-    print("🔍 正在從 Notion 取得待發題目...")
-    result = get_pending_post()
-    if result:
-        page_id, content = result
-        print(f"📝 準備發文：{content[:30]}...")
-        success = post_to_threads(content)
-        if success:
-            update_notion_status(page_id)
+    print("🤖 正在用 Gemini 產生情感辯論題...")
+    content = generate_post()
+    print(f"📝 產生內容：\n{content}\n")
+    success = post_to_threads(content)
+    if success:
+        print("🎉 全部完成！")

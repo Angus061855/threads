@@ -20,8 +20,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install requests
+      - - name: Install dependencies
+  run: pip install google-generativeai requests
+
 
       - name: Run auto post script
         env:

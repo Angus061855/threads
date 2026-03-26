@@ -1,14 +1,13 @@
 import os
 import requests
-import google.generativeai as genai
+import google.genai as genai
 
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
 def generate_post():
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
     prompt = """
 你是一位情感類 Threads 文案寫手。
@@ -28,7 +27,10 @@ def generate_post():
 - 只輸出貼文內容，不要加任何說明
 """
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-1.5-flash",
+        contents=prompt
+    )
     return response.text.strip()
 
 def post_to_threads(content):

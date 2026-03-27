@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import google.genai as genai
 
@@ -52,6 +53,7 @@ def generate_post():
     return response.text.strip()
 
 def post_to_threads(content):
+    # 第一步：建立容器
     url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     params = {
         "media_type": "TEXT",
@@ -59,16 +61,33 @@ def post_to_threads(content):
         "access_token": THREADS_ACCESS_TOKEN
     }
     res = requests.post(url, params=params)
-    creation_id = res.json().get("id")
+    data = res.json()
+
+    if "error" in data:
+        print(f"建立容器失敗：{data}")
+        return False
+
+    creation_id = data.get("id")
     print(f"貼文容器建立成功：{creation_id}")
 
+    # 第二步：等待 Threads 伺服器處理容器
+    print("等待 Threads 處理容器（35秒）...")
+    time.sleep(35)
+
+    # 第三步：發布
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     publish_params = {
         "creation_id": creation_id,
         "access_token": THREADS_ACCESS_TOKEN
     }
     pub_res = requests.post(publish_url, params=publish_params)
-    print(f"Threads 發文成功！{pub_res.json()}")
+    pub_data = pub_res.json()
+
+    if "error" in pub_data:
+        print(f"發布失敗：{pub_data}")
+        return False
+
+    print(f"Threads 發文成功！貼文 ID：{pub_data.get('id')}")
     return True
 
 if __name__ == "__main__":

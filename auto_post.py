@@ -1,9 +1,9 @@
 import os
 import requests
-import google.generativeai as genai
+from google import genai
 
 # ── 環境變數 ──────────────────────────────────────────
-NOTION_TOKEN       = os.environ["NOTION_TOKEN"]
+NOTION_TOKEN       = os.environ["NOTION_API_KEY"]
 NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 GEMINI_API_KEY     = os.environ["GEMINI_API_KEY"]
 THREADS_USER_ID    = os.environ["THREADS_USER_ID"]
@@ -23,7 +23,6 @@ def get_used_topics():
         res = requests.post(url, headers=headers, json=payload).json()
         for page in res.get("results", []):
             props = page.get("properties", {})
-            # 假設 Notion 欄位名稱是「辯題」
             title_list = props.get("辯題", {}).get("title", [])
             if title_list:
                 used.append(title_list[0]["plain_text"])
@@ -34,10 +33,9 @@ def get_used_topics():
 
 # ── 2. 用 Gemini 產生新辯題與貼文內容 ────────────────
 def generate_post(used_topics):
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
-    used_str = "\n".join(f"- {t}" for t in used_topics)
+    used_str = "\n".join(f"- {t}" for t in used_topics) if used_topics else "（目前沒有已用辯題）"
 
     prompt = f"""
 你是一位擅長寫感情辯題貼文的文案寫手。
@@ -70,16 +68,17 @@ def generate_post(used_topics):
 - 只輸出貼文內容，不要加任何說明、標題、編號
 """
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+    )
     return response.text.strip()
 
 # ── 3. 從貼文內容擷取辯題文字 ────────────────────────
 def extract_topic(post_text):
     lines = post_text.strip().split("\n")
-    # 第二行是辯題
     for i, line in enumerate(lines):
         if "今日辯題" in line:
-            # 找下一個非空行
             for j in range(i + 1, len(lines)):
                 if lines[j].strip():
                     return lines[j].strip()
@@ -87,7 +86,6 @@ def extract_topic(post_text):
 
 # ── 4. 發文到 Threads ────────────────────────────────
 def post_to_threads(text):
-    # Step 1：建立 container
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     res = requests.post(create_url, data={
         "media_type": "TEXT",
@@ -98,7 +96,6 @@ def post_to_threads(text):
     if not creation_id:
         raise Exception(f"建立 container 失敗：{res}")
 
-    # Step 2：發佈
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     pub_res = requests.post(publish_url, data={
         "creation_id": creation_id,

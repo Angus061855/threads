@@ -1,5 +1,6 @@
 import os
 import requests
+import datetime
 from google import genai
 
 # ── 環境變數 ──────────────────────────────────────────
@@ -54,14 +55,14 @@ def generate_post(used_topics):
 「[辯題內容]」
 
 [第一句，不超過20字]
+
 [第二句，不超過20字]
 
-（彈性2到4句，視內容決定，第一句跟第二句之間空一行）
+（彈性2到4句，視內容決定，每句之間空一行）
 
 規則：
-- 每一句獨立一行，每行不超過20個字
-- 以整句段落完整為主
-- 段落之間空一行
+- 每行不超過20個字
+- 辯題與下面段落之間空一行
 - 禁止用「——」
 - 禁止用「他笑著搖搖頭」「我愣住了」等AI感用語
 - 語氣像在跟朋友聊天，自然口語
@@ -84,7 +85,7 @@ def extract_topic(post_text):
             for j in range(i + 1, len(lines)):
                 if lines[j].strip():
                     return lines[j].strip()
-    return lines[1].strip() if len(lines) > 1 else "未知辯題"
+    return lines[[1]](#__1).strip() if len(lines) > 1 else "未知辯題"
 
 # ── 4. 發文到 Threads ────────────────────────────────
 def post_to_threads(text):
@@ -105,19 +106,29 @@ def post_to_threads(text):
     }).json()
     return pub_res
 
-# ── 5. 把新辯題記錄進 Notion ─────────────────────────
-def save_to_notion(topic):
+# ── 5. 把新辯題記錄進 Notion（含所有欄位）─────────────  ← 改這裡
+def save_to_notion(topic, post_text, post_id):
     url = "https://api.notion.com/v1/pages"
     headers = {
         "Authorization": f"Bearer {NOTION_TOKEN}",
         "Notion-Version": "2022-06-28",
         "Content-Type": "application/json",
     }
+    now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     payload = {
         "parent": {"database_id": NOTION_DATABASE_ID},
         "properties": {
             "辯題": {
                 "title": [{"text": {"content": topic}}]
+            },
+            "貼文內容": {
+                "rich_text": [{"text": {"content": post_text}}]
+            },
+            "貼文 ID": {
+                "rich_text": [{"text": {"content": post_id}}]
+            },
+            "發文時間": {
+                "date": {"start": now}
             }
         }
     }
@@ -125,7 +136,7 @@ def save_to_notion(topic):
     print("Notion 回應狀態：", res.status_code)
     print("Notion 回應內容：", res.json())
 
-# ── 主程式 ────────────────────────────────────────────
+# ── 主程式 ────────────────────────────────────────────  ← 改這裡
 if __name__ == "__main__":
     print("📥 撈取已用辯題...")
     used_topics = get_used_topics()
@@ -140,7 +151,8 @@ if __name__ == "__main__":
     print("發文結果：", result)
 
     topic = extract_topic(post_text)
+    post_id = result.get("id", "")          # ← 新增：取得發文 ID
     print("📝 記錄辯題到 Notion：", topic)
-    save_to_notion(topic)
+    save_to_notion(topic, post_text, post_id)  # ← 改：傳入三個參數
 
     print("✅ 完成！")

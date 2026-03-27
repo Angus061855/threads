@@ -85,7 +85,7 @@ def extract_topic(post_text):
             for j in range(i + 1, len(lines)):
                 if lines[j].strip():
                     return lines[j].strip()
-    return lines[[1]](#__1).strip() if len(lines) > 1 else "未知辯題"
+    return lines[1].strip() if len(lines) > 1 else "未知辯題"
 
 # ── 4. 發文到 Threads ────────────────────────────────
 def post_to_threads(text):

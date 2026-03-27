@@ -121,7 +121,9 @@ def save_to_notion(topic):
             }
         }
     }
-    requests.post(url, headers=headers, json=payload)
+    res = requests.post(url, headers=headers, json=payload)
+    print("Notion 回應狀態：", res.status_code)
+    print("Notion 回應內容：", res.json())
 
 # ── 主程式 ────────────────────────────────────────────
 if __name__ == "__main__":

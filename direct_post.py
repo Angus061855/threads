@@ -14,70 +14,28 @@ headers = {
 
 def get_pending_posts():
     url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
-    payload = {
-        "filter": {
-            "property": "狀態",
-            "select": {
-                "equals": "待發"
-            }
-        }
-    }
-    res = requests.post(url, headers=headers, json=payload)
-    return res.json().get("results", [])
-
-def mark_as_done(page_id):
-    url = f"https://api.notion.com/v1/pages/{page_id}"
-    payload = {
-        "properties": {
-            "狀態": {
-                "select": {
-                    "name": "已發"
-                }
-            }
-        }
-    }
-    requests.patch(url, headers=headers, json=payload)
-
-def post_to_threads(text):
-    # Step 1: 建立容器
-    url1 = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
-    res1 = requests.post(url1, params={
-        "media_type": "TEXT",
-        "text": text,
-        "access_token": THREADS_ACCESS_TOKEN
-    })
-    container_id = res1.json().get("id")
-    if not container_id:
-        print("❌ 建立容器失敗", res1.json())
-        return False
-
-    # Step 2: 發布
-    url2 = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
-    res2 = requests.post(url2, params={
-        "creation_id": container_id,
-        "access_token": THREADS_ACCESS_TOKEN
-    })
-    print("✅ 發布結果：", res2.json())
-    return res2.status_code == 200
+    
+    # 先不加任何filter，把全部資料撈出來看看
+    res = requests.post(url, headers=headers, json={})
+    data = res.json()
+    
+    print("=== Notion 回傳原始資料 ===")
+    print(data)
+    print("===========================")
+    
+    results = data.get("results", [])
+    print(f"總共找到 {len(results)} 筆資料")
+    
+    for r in results:
+        props = r["properties"]
+        print("--- 欄位內容 ---")
+        print(props)
+        print("----------------")
+    
+    return results
 
 def main():
-    posts = get_pending_posts()
-    if not posts:
-        print("沒有待發文章")
-        return
-
-    # 每次只發第一筆
-    post = posts[0]
-    page_id = post["id"]
-    text = post["properties"]["文字"]["rich_text"]
-    if not text:
-        print("文字欄位是空的")
-        return
-
-    content = text[0]["plain_text"]
-    success = post_to_threads(content)
-    if success:
-        mark_as_done(page_id)
+    get_pending_posts()
 
 if __name__ == "__main__":
     main()

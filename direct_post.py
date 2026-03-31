@@ -1,84 +1,83 @@
 import os
 import requests
-from notion_client import Client
 
-# === 設定 ===
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
-NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID_3"]
+DATABASE_ID = os.environ["NOTION_DATABASE_ID_3"]
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
 
-notion = Client(auth=NOTION_TOKEN)
+headers = {
+    "Authorization": f"Bearer {NOTION_TOKEN}",
+    "Content-Type": "application/json",
+    "Notion-Version": "2022-06-28"
+}
 
-def get_ready_posts():
-    response = notion.databases.query(
-        database_id=NOTION_DATABASE_ID,
-        filter={
+def get_pending_posts():
+    url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
+    payload = {
+        "filter": {
             "property": "狀態",
             "status": {
                 "equals": "待發"
             }
         }
-    )
-    return response["results"]
+    }
+    res = requests.post(url, headers=headers, json=payload)
+    return res.json().get("results", [])
 
-def post_to_threads(text):
-    # Step 1: 建立 container
-    url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
+def mark_as_done(page_id):
+    url = f"https://api.notion.com/v1/pages/{page_id}"
     payload = {
-        "media_type": "TEXT",
-        "text": text,
-        "access_token": THREADS_ACCESS_TOKEN
-    }
-    res = requests.post(url, data=payload)
-    res.raise_for_status()
-    creation_id = res.json()["id"]
-
-    # Step 2: 發布
-    publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
-    publish_payload = {
-        "creation_id": creation_id,
-        "access_token": THREADS_ACCESS_TOKEN
-    }
-    pub_res = requests.post(publish_url, data=publish_payload)
-    pub_res.raise_for_status()
-    return pub_res.json()
-
-def update_status(page_id, status):
-    notion.pages.update(
-        page_id=page_id,
-        properties={
+        "properties": {
             "狀態": {
                 "status": {
-                    "name": status
+                    "name": "已發"
                 }
             }
         }
-    )
+    }
+    requests.patch(url, headers=headers, json=payload)
+
+def post_to_threads(text):
+    # Step 1: 建立容器
+    url1 = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
+    res1 = requests.post(url1, params={
+        "media_type": "TEXT",
+        "text": text,
+        "access_token": THREADS_ACCESS_TOKEN
+    })
+    container_id = res1.json().get("id")
+    if not container_id:
+        print("❌ 建立容器失敗", res1.json())
+        return False
+
+    # Step 2: 發布
+    url2 = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
+    res2 = requests.post(url2, params={
+        "creation_id": container_id,
+        "access_token": THREADS_ACCESS_TOKEN
+    })
+    print("✅ 發布結果：", res2.json())
+    return res2.status_code == 200
 
 def main():
-    posts = get_ready_posts()
+    posts = get_pending_posts()
     if not posts:
         print("沒有待發文章")
         return
 
-    for post in posts:
-        page_id = post["id"]
-        try:
-            # 抓取「文字」欄位內容
-            rich_text = post["properties"]["文字"]["rich_text"]
-            if not rich_text:
-                print(f"頁面 {page_id} 文字欄位為空，跳過")
-                continue
-            text = rich_text[0]["plain_text"]
+    # 每次只發第一筆
+    post = posts[0]
+    page_id = post["id"]
+    text = post["properties"]["文字"]["rich_text"]
+    if not text:
+        print("文字欄位是空的")
+        return
 
-            print(f"發文中：{text[:30]}...")
-            post_to_threads(text)
-            update_status(page_id, "已發")
-            print(f"✅ 發文成功")
-
-        except Exception as e:
-            print(f"❌ 發文失敗：{e}")
+    content = text[0]["plain_text"]
+    success = post_to_threads(content)
+    if success:
+        mark_as_done(page_id)
 
 if __name__ == "__main__":
     main()

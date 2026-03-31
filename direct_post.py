@@ -17,7 +17,7 @@ def get_pending_posts():
     payload = {
         "filter": {
             "property": "狀態",
-            "status": {
+            "select": {
                 "equals": "待發"
             }
         }
@@ -30,7 +30,7 @@ def mark_as_done(page_id):
     payload = {
         "properties": {
             "狀態": {
-                "status": {
+                "select": {
                     "name": "已發"
                 }
             }

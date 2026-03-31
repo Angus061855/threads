@@ -1,0 +1,30 @@
+name: Direct Post to Threads
+
+on:
+  schedule:
+    - cron: '0 11 * * *'   # 台灣時間 19:00
+    - cron: '0 14 * * *'   # 台灣時間 22:00
+    - cron: '0 15 * * *'   # 台灣時間 23:00
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run direct post
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID_3: ${{ secrets.NOTION_DATABASE_ID_3 }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        run: python direct_post.py

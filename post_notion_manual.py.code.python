@@ -1,5 +1,7 @@
 import os
 import requests
+import time
+import re
 
 NOTION_API_KEY = os.environ["NOTION_API_KEY"]
 NOTION_DATABASE_ID_2 = os.environ["NOTION_DATABASE_ID_2"]
@@ -32,6 +34,7 @@ def get_first_pending_post():
 
 def get_page_content(page):
     page_id = page["id"]
+
     # 取得標題
     title = page["properties"]["標題"]["title"]
     title_text = title[0]["plain_text"] if title else ""
@@ -41,7 +44,7 @@ def get_page_content(page):
     rich_text = content_prop.get("rich_text", [])
     content_text = rich_text[0]["plain_text"] if rich_text else ""
 
-    # 組合發文內容
+    # 組合完整內容
     if title_text and content_text:
         full_text = f"{title_text}\n\n{content_text}"
     elif title_text:
@@ -49,31 +52,58 @@ def get_page_content(page):
     else:
         full_text = content_text
 
-    return page_id, full_text
+    # 用 §1 §2 §3... 切段，移除標記只保留內容
+    segments = re.split(r'§\d+', full_text)
+    segments = [s.strip() for s in segments if s.strip()]
 
-def post_to_threads(text):
-    # Step 1: 建立 container
-    create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
+    return page_id, segments
+
+def create_container(text, reply_to_id=None):
+    url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     payload = {
         "media_type": "TEXT",
         "text": text,
         "access_token": THREADS_ACCESS_TOKEN
     }
-    res = requests.post(create_url, data=payload)
+    if reply_to_id:
+        payload["reply_to_id"] = reply_to_id
+    res = requests.post(url, data=payload)
     container_id = res.json().get("id")
-    if not container_id:
-        print("建立 container 失敗：", res.json())
-        return False
+    return container_id
 
-    # Step 2: 發布
-    publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
-    publish_payload = {
+def publish_container(container_id):
+    url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
+    payload = {
         "creation_id": container_id,
         "access_token": THREADS_ACCESS_TOKEN
     }
-    pub_res = requests.post(publish_url, data=publish_payload)
-    print("發文結果：", pub_res.json())
-    return pub_res.status_code == 200
+    res = requests.post(url, data=payload)
+    return res.json().get("id")
+
+def post_thread_series(segments):
+    previous_post_id = None
+
+    for i, text in enumerate(segments):
+        print(f"發第 {i+1} 段...")
+
+        container_id = create_container(text, reply_to_id=previous_post_id)
+        if not container_id:
+            print(f"第 {i+1} 段建立 container 失敗")
+            return False
+
+        post_id = publish_container(container_id)
+        if not post_id:
+            print(f"第 {i+1} 段發布失敗")
+            return False
+
+        print(f"第 {i+1} 段發布成功，post_id：{post_id}")
+        previous_post_id = post_id
+
+        # 每段之間等3秒，避免太快被限流
+        if i < len(segments) - 1:
+            time.sleep(3)
+
+    return True
 
 def mark_as_posted(page_id):
     url = f"https://api.notion.com/v1/pages/{page_id}"
@@ -92,8 +122,8 @@ def mark_as_posted(page_id):
 if __name__ == "__main__":
     page = get_first_pending_post()
     if page:
-        page_id, text = get_page_content(page)
-        print("準備發文：", text[:30], "...")
-        success = post_to_threads(text)
+        page_id, segments = get_page_content(page)
+        print(f"共 {len(segments)} 段，準備發串文...")
+        success = post_thread_series(segments)
         if success:
             mark_as_posted(page_id)

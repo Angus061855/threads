@@ -35,16 +35,13 @@ def get_first_pending_post():
 def get_page_content(page):
     page_id = page["id"]
 
-    # 取得標題
     title = page["properties"]["標題"]["title"]
     title_text = title[0]["plain_text"] if title else ""
 
-    # 取得內容
     content_prop = page["properties"].get("內容", {})
     rich_text = content_prop.get("rich_text", [])
     content_text = rich_text[0]["plain_text"] if rich_text else ""
 
-    # 組合完整內容
     if title_text and content_text:
         full_text = f"{title_text}\n\n{content_text}"
     elif title_text:
@@ -52,7 +49,6 @@ def get_page_content(page):
     else:
         full_text = content_text
 
-    # 用 §1 §2 §3... 切段，移除標記只保留內容
     segments = re.split(r'§\d+', full_text)
     segments = [s.strip() for s in segments if s.strip()]
 
@@ -68,6 +64,7 @@ def create_container(text, reply_to_id=None):
     if reply_to_id:
         payload["reply_to_id"] = reply_to_id
     res = requests.post(url, data=payload)
+    print(f"create_container 回應：{res.status_code} / {res.json()}")
     container_id = res.json().get("id")
     return container_id
 
@@ -78,6 +75,7 @@ def publish_container(container_id):
         "access_token": THREADS_ACCESS_TOKEN
     }
     res = requests.post(url, data=payload)
+    print(f"publish_container 回應：{res.status_code} / {res.json()}")
     return res.json().get("id")
 
 def post_thread_series(segments):
@@ -91,6 +89,8 @@ def post_thread_series(segments):
             print(f"第 {i+1} 段建立 container 失敗")
             return False
 
+        time.sleep(5)
+
         post_id = publish_container(container_id)
         if not post_id:
             print(f"第 {i+1} 段發布失敗")
@@ -99,7 +99,6 @@ def post_thread_series(segments):
         print(f"第 {i+1} 段發布成功，post_id：{post_id}")
         previous_post_id = post_id
 
-        # 每段之間等3秒，避免太快被限流
         if i < len(segments) - 1:
             time.sleep(3)
 

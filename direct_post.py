@@ -1,7 +1,7 @@
 import os
 import requests
 
-NOTION_TOKEN = os.environ["NOTION_TOKEN"]
+NOTION_TOKEN = os.environ["NOTION_API_KEY"]
 DATABASE_ID = os.environ["NOTION_DATABASE_ID_3"]
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]

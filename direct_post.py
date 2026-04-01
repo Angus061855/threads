@@ -35,49 +35,41 @@ def get_pending_posts():
     return results
 
 def generate_image(text):
-    W, H = 1200, 400
-    img = Image.new("RGB", (W, H), color=(0, 0, 0))
+    W, H = 1200, 630
+    img = Image.new("RGB", (W, H), color=(10, 10, 10))
     draw = ImageDraw.Draw(img)
 
-    # 黑板漸層效果（用多層半透明橢圓模擬）
-    for i in range(80, 0, -1):
-        alpha = int(60 * (i / 80))
-        overlay = Image.new("RGB", (W, H), (30, 30, 30))
-        ellipse_mask = Image.new("L", (W, H), 0)
-        ellipse_draw = ImageDraw.Draw(ellipse_mask)
-        margin = (80 - i) * 4
-        ellipse_draw.ellipse(
-            [W//2 - (W//2 - margin), H//2 - (H//2 - margin),
-             W//2 + (W//2 - margin), H//2 + (H//2 - margin)],
-            fill=alpha
-        )
-        img.paste(overlay, mask=ellipse_mask)
-
-    # 底部暗角
+    # 簡單暗角效果（不用橢圓，改用漸層矩形）
     for y in range(H):
-        darkness = int(120 * ((y / H) ** 1.5))
+        darkness = int(80 * ((y / H) ** 2))
         dark_strip = Image.new("RGB", (W, 1), (0, 0, 0))
         mask_strip = Image.new("L", (W, 1), darkness)
         img.paste(dark_strip, (0, y), mask=mask_strip)
 
     # 載入字體
     try:
-        font = ImageFont.truetype("ChiKuSung.otf", size=52)
-    except:
+        font = ImageFont.truetype("ChiKuSung.otf", size=56)
+    except Exception as e:
+        print(f"⚠️ 字體載入失敗：{e}，使用預設字體")
         font = ImageFont.load_default()
-        print("⚠️ 字體載入失敗，使用預設字體")
 
-    # 文字置中
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    x = (W - text_w) / 2
-    y = (H - text_h) / 2
+    # 多行文字處理
+    lines = text.split("\n")
+    line_height = 80
+    total_text_h = len(lines) * line_height
 
-    # 文字陰影
-    draw.text((x + 2, y + 2), text, font=font, fill=(80, 80, 80))
-    # 主文字（白色）
-    draw.text((x, y), text, font=font, fill=(240, 240, 240))
+    start_y = (H - total_text_h) / 2
+
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_w = bbox[2] - bbox[0]
+        x = (W - text_w) / 2
+        y = start_y + i * line_height
+
+        # 陰影
+        draw.text((x + 2, y + 2), line, font=font, fill=(60, 60, 60))
+        # 主文字
+        draw.text((x, y), line, font=font, fill=(235, 235, 235))
 
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
@@ -89,12 +81,10 @@ def push_image_to_github():
     subprocess.run(["git", "commit", "-m", "Update output image"], check=True)
     subprocess.run(["git", "push"], check=True)
     print("✅ 圖片已推送到 GitHub")
-    # 等待 GitHub Pages 部署
     print("⏳ 等待 GitHub Pages 部署（30秒）...")
     time.sleep(30)
 
 def post_to_threads(text, image_url):
-    # Step 1：建立圖片貼文容器
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     res = requests.post(create_url, params={
         "media_type": "IMAGE",
@@ -110,7 +100,6 @@ def post_to_threads(text, image_url):
         print("❌ 建立容器失敗")
         return False
 
-    # Step 2：發布貼文
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     res = requests.post(publish_url, params={
         "creation_id": creation_id,
@@ -139,11 +128,9 @@ def main():
         print("沒有待發文章，結束")
         return
 
-    # 只發第一篇
     post = posts[0]
     page_id = post["id"]
 
-    # 取得文字內容
     rich_text = post["properties"]["文字"]["rich_text"]
     if not rich_text:
         print("❌ 文字欄位是空的，跳過")
@@ -152,16 +139,11 @@ def main():
     text = rich_text[0]["plain_text"]
     print(f"準備發文：{text}")
 
-    # 生成圖片
     generate_image(text)
-
-    # 推送圖片到 GitHub Pages
     push_image_to_github()
 
-    # 發文到 Threads（圖片 + 文字）
     success = post_to_threads(text, IMAGE_URL)
 
-    # 發文成功後更新 Notion 狀態
     if success:
         update_status(page_id)
         print("✅ 發文成功，狀態已更新為已發")

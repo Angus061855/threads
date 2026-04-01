@@ -54,7 +54,7 @@ def split_lines(text):
         if char in break_chars:
             lines.append(current)
             current = ""
-    if current:  # 最後沒有標點的剩餘文字
+    if current:
         lines.append(current)
     return lines
 
@@ -77,7 +77,7 @@ def generate_image(text):
         print(f"❌ 字體載入失敗：{e}")
         font = ImageFont.load_default()
 
-    # ✅ 自動依標點斷行，若 Notion 已有 \n 也保留
+    # 自動依標點斷行，若 Notion 已有 \n 也保留
     raw_lines = text.split("\n")
     lines = []
     for raw in raw_lines:
@@ -87,13 +87,27 @@ def generate_image(text):
     total_text_h = len(lines) * line_height
     start_y = (H - total_text_h) / 2
 
+    gap = 60  # ✅ 空格位置的像素間距，可以調整這個數字
+
     for i, line in enumerate(lines):
-        bbox = draw.textbbox((0, 0), line, font=font)
-        text_w = bbox[2] - bbox[0]
-        x = (W - text_w) / 2
         y = start_y + i * line_height
-        draw.text((x + 3, y + 3), line, font=font, fill=(40, 40, 40))
-        draw.text((x, y), line, font=font, fill=(235, 235, 235))
+
+        # ✅ 依空格切段，分段繪製，中間插入固定間距
+        parts = line.split(" ")
+
+        # 計算整行總寬（各段文字寬 + 間距）
+        part_widths = []
+        for p in parts:
+            bbox = draw.textbbox((0, 0), p, font=font)
+            part_widths.append(bbox[2] - bbox[0])
+
+        total_w = sum(part_widths) + gap * (len(parts) - 1)
+        x = (W - total_w) / 2  # 整行水平置中起點
+
+        for j, part in enumerate(parts):
+            draw.text((x + 3, y + 3), part, font=font, fill=(40, 40, 40))
+            draw.text((x, y), part, font=font, fill=(235, 235, 235))
+            x += part_widths[j] + gap  # 移到下一段
 
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
@@ -169,7 +183,7 @@ def main():
         print("❌ 文字欄位是空的，跳過")
         return
 
-    text = rich_text[0]["plain_text"]  # ✅ 拿掉「」
+    text = rich_text[0]["plain_text"]
     print(f"準備發文：{text}")
 
     generate_image(text)

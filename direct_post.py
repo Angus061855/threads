@@ -39,7 +39,7 @@ def get_pending_posts():
 
 def generate_image(text):
     W, H = 1080, 1080
-    img = Image.new("RGB", (W, H), color=(10, 10, 10))
+    img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
 
     # 暗角漸層

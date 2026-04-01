@@ -45,22 +45,12 @@ def get_pending_posts():
     return results
 
 def smart_split(text, max_chars=24):
-    """
-    智慧斷行邏輯：
-    - 整段文字（去掉空格計算）<= max_chars → 一行
-    - 超過 → 依標點符號或換行符號斷句，每行累積不超過 max_chars
-    - 最多三行
-    """
     text = text.strip()
-
-    # 用換行符號先切段（Notion 裡有換行的情況）
     raw_lines = text.split("\n")
 
-    # 如果只有一行且夠短 → 直接一行
     if len(raw_lines) == 1 and len(text.replace(" ", "")) <= max_chars:
         return [text]
 
-    # 如果 Notion 本身就有換行，直接用換行當分行
     if len(raw_lines) > 1:
         lines = [l.strip() for l in raw_lines if l.strip()]
         if len(lines) > 3:
@@ -68,7 +58,6 @@ def smart_split(text, max_chars=24):
             lines = lines[:3]
         return lines
 
-    # 單行長文字 → 依標點斷句
     break_chars = "，。！？、"
     sentences = []
     current = ""
@@ -80,7 +69,6 @@ def smart_split(text, max_chars=24):
     if current:
         sentences.append(current)
 
-    # 把句子合併成行，每行不超過 max_chars（不含空格）
     lines = []
     current_line = ""
     for sentence in sentences:
@@ -107,7 +95,7 @@ def generate_image(text):
     W, H = 1920, 640
     font_size = 72
     line_height = 100
-    gap = 60  # 空格間距像素
+    gap = 60
 
     img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
@@ -121,10 +109,12 @@ def generate_image(text):
 
     try:
         font = ImageFont.truetype(FONT_PATH, size=font_size)
+        font_sign = ImageFont.truetype(FONT_PATH, size=32)   # ← 簽名字體
         print(f"✅ 字體載入成功：{FONT_PATH}")
     except Exception as e:
         print(f"❌ 字體載入失敗：{e}")
         font = ImageFont.load_default()
+        font_sign = ImageFont.load_default()
 
     lines = smart_split(text)
     print(f"斷行結果：{lines}")
@@ -134,30 +124,36 @@ def generate_image(text):
 
     for i, line in enumerate(lines):
         y = start_y + i * line_height
-
-        # 依空格切段，分段繪製（支援間距）
         parts = line.split(" ")
-
         part_widths = []
         for p in parts:
             bbox = draw.textbbox((0, 0), p, font=font)
             part_widths.append(bbox[2] - bbox[0])
-
         total_w = sum(part_widths) + gap * (len(parts) - 1)
         x = (W - total_w) / 2
-
         for j, part in enumerate(parts):
             draw.text((x + 3, y + 3), part, font=font, fill=(40, 40, 40))
             draw.text((x, y), part, font=font, fill=(235, 235, 235))
             x += part_widths[j] + gap
 
+    # ✅ 右下角簽名
+    sign_text = "- Angus"
+    sign_margin = 40
+    bbox = draw.textbbox((0, 0), sign_text, font=font_sign)
+    sw = bbox[2] - bbox[0]
+    sh = bbox[3] - bbox[1]
+    sx = W - sw - sign_margin
+    sy = H - sh - sign_margin
+    draw.text((sx + 2, sy + 2), sign_text, font=font_sign, fill=(20, 20, 20))   # 陰影
+    draw.text((sx, sy), sign_text, font=font_sign, fill=(160, 160, 160))         # 本體
+
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
 
 def format_caption(text):
-    """caption 跟圖片同邏輯，換行用 \n 串接"""
+    """caption 換行 + 結尾加簽名"""
     lines = smart_split(text)
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n\n- Angus"   # ✅ 文案簽名
 
 def upload_to_cloudinary():
     result = cloudinary.uploader.upload(IMAGE_FILENAME)

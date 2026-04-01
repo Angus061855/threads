@@ -14,7 +14,7 @@ IMAGE_FILENAME = "output.png"
 
 # ✅ 取得字體絕對路徑（與 direct_post.py 同一資料夾）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FONT_PATH = os.path.join(BASE_DIR, "ChiKuSung.otf")
+FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 
 headers = {
     "Authorization": f"Bearer {NOTION_TOKEN}",

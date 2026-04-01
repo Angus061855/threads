@@ -20,7 +20,6 @@ cloudinary.config(
 )
 
 IMAGE_FILENAME = "output.png"
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 
@@ -45,8 +44,22 @@ def get_pending_posts():
     print(f"找到 {len(results)} 筆待發文章")
     return results
 
+def split_lines(text):
+    """依照標點符號自動斷行，斷點符號保留在該行結尾"""
+    break_chars = "，。！？"
+    lines = []
+    current = ""
+    for char in text:
+        current += char
+        if char in break_chars:
+            lines.append(current)
+            current = ""
+    if current:  # 最後沒有標點的剩餘文字
+        lines.append(current)
+    return lines
+
 def generate_image(text):
-    W, H = 1920, 640  # ✅ 改成橫幅寬版
+    W, H = 1920, 640
     img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
 
@@ -64,7 +77,12 @@ def generate_image(text):
         print(f"❌ 字體載入失敗：{e}")
         font = ImageFont.load_default()
 
-    lines = text.split("\n")
+    # ✅ 自動依標點斷行，若 Notion 已有 \n 也保留
+    raw_lines = text.split("\n")
+    lines = []
+    for raw in raw_lines:
+        lines.extend(split_lines(raw))
+
     line_height = 100
     total_text_h = len(lines) * line_height
     start_y = (H - total_text_h) / 2
@@ -72,7 +90,7 @@ def generate_image(text):
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font)
         text_w = bbox[2] - bbox[0]
-        x = (W - text_w) / 2  # ✅ 水平置中
+        x = (W - text_w) / 2
         y = start_y + i * line_height
         draw.text((x + 3, y + 3), line, font=font, fill=(40, 40, 40))
         draw.text((x, y), line, font=font, fill=(235, 235, 235))
@@ -90,12 +108,12 @@ def upload_to_cloudinary():
         print("❌ 圖片上傳失敗")
         return None
 
-def post_to_threads(image_url, caption):  # ✅ 加入 caption 參數
+def post_to_threads(image_url, caption):
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     res = requests.post(create_url, params={
         "media_type": "IMAGE",
         "image_url": image_url,
-        "text": caption,  # ✅ 發文附上文字說明
+        "text": caption,
         "access_token": THREADS_ACCESS_TOKEN
     })
     data = res.json()
@@ -151,7 +169,7 @@ def main():
         print("❌ 文字欄位是空的，跳過")
         return
 
-    text = f"「{rich_text[0]['plain_text']}」"
+    text = rich_text[0]["plain_text"]  # ✅ 拿掉「」
     print(f"準備發文：{text}")
 
     generate_image(text)
@@ -161,7 +179,7 @@ def main():
         print("❌ 無法取得圖片 URL，終止")
         return
 
-    success = post_to_threads(image_url, caption=text)  # ✅ 傳入文字
+    success = post_to_threads(image_url, caption=text)
 
     if success:
         update_status(page_id)

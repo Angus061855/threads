@@ -46,7 +46,7 @@ def get_pending_posts():
     return results
 
 def generate_image(text):
-    W, H = 1080, 1080
+    W, H = 1920, 640  # ✅ 改成橫幅寬版
     img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
 
@@ -72,7 +72,7 @@ def generate_image(text):
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font)
         text_w = bbox[2] - bbox[0]
-        x = (W - text_w) / 2
+        x = (W - text_w) / 2  # ✅ 水平置中
         y = start_y + i * line_height
         draw.text((x + 3, y + 3), line, font=font, fill=(40, 40, 40))
         draw.text((x, y), line, font=font, fill=(235, 235, 235))
@@ -90,11 +90,12 @@ def upload_to_cloudinary():
         print("❌ 圖片上傳失敗")
         return None
 
-def post_to_threads(image_url):
+def post_to_threads(image_url, caption):  # ✅ 加入 caption 參數
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     res = requests.post(create_url, params={
         "media_type": "IMAGE",
         "image_url": image_url,
+        "text": caption,  # ✅ 發文附上文字說明
         "access_token": THREADS_ACCESS_TOKEN
     })
     data = res.json()
@@ -150,7 +151,7 @@ def main():
         print("❌ 文字欄位是空的，跳過")
         return
 
-    text = rich_text[0]["plain_text"]
+    text = f"「{rich_text[0]['plain_text']}」"
     print(f"準備發文：{text}")
 
     generate_image(text)
@@ -160,7 +161,7 @@ def main():
         print("❌ 無法取得圖片 URL，終止")
         return
 
-    success = post_to_threads(image_url)
+    success = post_to_threads(image_url, caption=text)  # ✅ 傳入文字
 
     if success:
         update_status(page_id)

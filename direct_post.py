@@ -1,17 +1,20 @@
 import os
 import time
+import base64
 import requests
 from PIL import Image, ImageDraw, ImageFont
-import subprocess
 
 NOTION_TOKEN = os.environ["NOTION_API_KEY"]
 DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
+IMGBB_API_KEY = os.environ["IMGBB_API_KEY"]
 
-GITHUB_REPO = "Angus061855/threads"
 IMAGE_FILENAME = "output.png"
-IMAGE_URL = f"https://angus061855.github.io/threads/{IMAGE_FILENAME}"
+
+# ✅ 取得字體絕對路徑（與 direct_post.py 同一資料夾）
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FONT_PATH = os.path.join(BASE_DIR, "ChiKuSung.otf")
 
 headers = {
     "Authorization": f"Bearer {NOTION_TOKEN}",
@@ -35,29 +38,30 @@ def get_pending_posts():
     return results
 
 def generate_image(text):
-    W, H = 1200, 630
+    W, H = 1080, 1080
     img = Image.new("RGB", (W, H), color=(10, 10, 10))
     draw = ImageDraw.Draw(img)
 
-    # 簡單暗角效果（不用橢圓，改用漸層矩形）
+    # 暗角漸層
     for y in range(H):
-        darkness = int(80 * ((y / H) ** 2))
+        darkness = int(100 * ((y / H) ** 2))
         dark_strip = Image.new("RGB", (W, 1), (0, 0, 0))
         mask_strip = Image.new("L", (W, 1), darkness)
         img.paste(dark_strip, (0, y), mask=mask_strip)
 
-    # 載入字體
+    # ✅ 用絕對路徑載入字體
     try:
-        font = ImageFont.truetype("ChiKuSung.otf", size=56)
+        font = ImageFont.truetype(FONT_PATH, size=72)
+        print(f"✅ 字體載入成功：{FONT_PATH}")
     except Exception as e:
-        print(f"⚠️ 字體載入失敗：{e}，使用預設字體")
+        print(f"❌ 字體載入失敗：{e}")
+        print(f"   嘗試路徑：{FONT_PATH}")
         font = ImageFont.load_default()
 
     # 多行文字處理
     lines = text.split("\n")
-    line_height = 80
+    line_height = 100
     total_text_h = len(lines) * line_height
-
     start_y = (H - total_text_h) / 2
 
     for i, line in enumerate(lines):
@@ -65,31 +69,41 @@ def generate_image(text):
         text_w = bbox[2] - bbox[0]
         x = (W - text_w) / 2
         y = start_y + i * line_height
-
         # 陰影
-        draw.text((x + 2, y + 2), line, font=font, fill=(60, 60, 60))
-        # 主文字
+        draw.text((x + 3, y + 3), line, font=font, fill=(40, 40, 40))
+        # 主文字（白色）
         draw.text((x, y), line, font=font, fill=(235, 235, 235))
 
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
 
-def push_image_to_github():
-    subprocess.run(["git", "config", "user.email", "action@github.com"], check=True)
-    subprocess.run(["git", "config", "user.name", "GitHub Action"], check=True)
-    subprocess.run(["git", "add", IMAGE_FILENAME], check=True)
-    subprocess.run(["git", "commit", "-m", "Update output image"], check=True)
-    subprocess.run(["git", "push"], check=True)
-    print("✅ 圖片已推送到 GitHub")
-    print("⏳ 等待 GitHub Pages 部署（30秒）...")
-    time.sleep(30)
+def upload_to_imgbb():
+    with open(IMAGE_FILENAME, "rb") as f:
+        image_data = base64.b64encode(f.read()).decode("utf-8")
 
-def post_to_threads(text, image_url):
+    res = requests.post(
+        "https://api.imgbb.com/1/upload",
+        data={
+            "key": IMGBB_API_KEY,
+            "image": image_data,
+        }
+    )
+    data = res.json()
+    print("imgbb 回傳：", data)
+
+    if data.get("success"):
+        url = data["data"]["display_url"]
+        print(f"✅ 圖片上傳成功：{url}")
+        return url
+    else:
+        print("❌ 圖片上傳失敗")
+        return None
+
+def post_to_threads(image_url):
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
     res = requests.post(create_url, params={
         "media_type": "IMAGE",
         "image_url": image_url,
-        "text": text,
         "access_token": THREADS_ACCESS_TOKEN
     })
     data = res.json()
@@ -100,13 +114,22 @@ def post_to_threads(text, image_url):
         print("❌ 建立容器失敗")
         return False
 
+    print("⏳ 等待容器準備（10秒）...")
+    time.sleep(10)
+
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     res = requests.post(publish_url, params={
         "creation_id": creation_id,
         "access_token": THREADS_ACCESS_TOKEN
     })
-    print("發布回傳：", res.json())
-    return True
+    result = res.json()
+    print("發布回傳：", result)
+
+    if result.get("id"):
+        return True
+    else:
+        print("❌ 發布失敗")
+        return False
 
 def update_status(page_id):
     url = f"https://api.notion.com/v1/pages/{page_id}"
@@ -140,9 +163,13 @@ def main():
     print(f"準備發文：{text}")
 
     generate_image(text)
-    push_image_to_github()
 
-    success = post_to_threads(text, IMAGE_URL)
+    image_url = upload_to_imgbb()
+    if not image_url:
+        print("❌ 無法取得圖片 URL，終止")
+        return
+
+    success = post_to_threads(image_url)
 
     if success:
         update_status(page_id)

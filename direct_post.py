@@ -1,18 +1,26 @@
 import os
 import time
-import base64
 import requests
+import cloudinary
+import cloudinary.uploader
 from PIL import Image, ImageDraw, ImageFont
 
 NOTION_TOKEN = os.environ["NOTION_API_KEY"]
 DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
-IMGBB_API_KEY = os.environ["IMGBB_API_KEY"]
+CLOUDINARY_CLOUD_NAME = os.environ["CLOUDINARY_CLOUD_NAME"]
+CLOUDINARY_API_KEY = os.environ["CLOUDINARY_API_KEY"]
+CLOUDINARY_API_SECRET = os.environ["CLOUDINARY_API_SECRET"]
+
+cloudinary.config(
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET
+)
 
 IMAGE_FILENAME = "output.png"
 
-# ✅ 取得字體絕對路徑（與 direct_post.py 同一資料夾）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 
@@ -49,16 +57,13 @@ def generate_image(text):
         mask_strip = Image.new("L", (W, 1), darkness)
         img.paste(dark_strip, (0, y), mask=mask_strip)
 
-    # ✅ 用絕對路徑載入字體
     try:
         font = ImageFont.truetype(FONT_PATH, size=72)
         print(f"✅ 字體載入成功：{FONT_PATH}")
     except Exception as e:
         print(f"❌ 字體載入失敗：{e}")
-        print(f"   嘗試路徑：{FONT_PATH}")
         font = ImageFont.load_default()
 
-    # 多行文字處理
     lines = text.split("\n")
     line_height = 100
     total_text_h = len(lines) * line_height
@@ -69,30 +74,16 @@ def generate_image(text):
         text_w = bbox[2] - bbox[0]
         x = (W - text_w) / 2
         y = start_y + i * line_height
-        # 陰影
         draw.text((x + 3, y + 3), line, font=font, fill=(40, 40, 40))
-        # 主文字（白色）
         draw.text((x, y), line, font=font, fill=(235, 235, 235))
 
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
 
-def upload_to_imgbb():
-    with open(IMAGE_FILENAME, "rb") as f:
-        image_data = base64.b64encode(f.read()).decode("utf-8")
-
-    res = requests.post(
-        "https://api.imgbb.com/1/upload",
-        data={
-            "key": IMGBB_API_KEY,
-            "image": image_data,
-        }
-    )
-    data = res.json()
-    print("imgbb 回傳：", data)
-
-    if data.get("success"):
-        url = data["data"]["display_url"]
+def upload_to_cloudinary():
+    result = cloudinary.uploader.upload(IMAGE_FILENAME)
+    url = result.get("secure_url")
+    if url:
         print(f"✅ 圖片上傳成功：{url}")
         return url
     else:
@@ -164,7 +155,7 @@ def main():
 
     generate_image(text)
 
-    image_url = upload_to_imgbb()
+    image_url = upload_to_cloudinary()
     if not image_url:
         print("❌ 無法取得圖片 URL，終止")
         return

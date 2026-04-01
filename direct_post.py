@@ -44,22 +44,62 @@ def get_pending_posts():
     print(f"找到 {len(results)} 筆待發文章")
     return results
 
-def split_lines(text):
-    """依照標點符號自動斷行，斷點符號保留在該行結尾"""
-    break_chars = "，。！？"
-    lines = []
+def smart_split(text, max_chars=24):
+    """
+    智慧斷行邏輯：
+    - 整段文字 <= max_chars → 一行
+    - 超過 → 依標點斷句，累積不超過 max_chars 才換行
+    - 最多三行，超過只取前三行
+    """
+    break_chars = "，。！？、"
+    text = text.strip()
+
+    # 短句直接一行
+    if len(text) <= max_chars:
+        return [text]
+
+    # 依標點斷句
+    sentences = []
     current = ""
     for char in text:
         current += char
         if char in break_chars:
-            lines.append(current)
+            sentences.append(current)
             current = ""
     if current:
-        lines.append(current)
+        sentences.append(current)
+
+    # 把句子合併成行，每行不超過 max_chars
+    lines = []
+    current_line = ""
+    for sentence in sentences:
+        if len(current_line) + len(sentence) <= max_chars:
+            current_line += sentence
+        else:
+            if current_line:
+                lines.append(current_line)
+            # 單句本身超過 max_chars，硬切
+            while len(sentence) > max_chars:
+                lines.append(sentence[:max_chars])
+                sentence = sentence[max_chars:]
+            current_line = sentence
+    if current_line:
+        lines.append(current_line)
+
+    # 最多三行
+    if len(lines) > 3:
+        print(f"⚠️ 文字超過三行，只取前三行")
+        lines = lines[:3]
+
     return lines
 
 def generate_image(text):
     W, H = 1920, 640
+    font_size = 72
+    line_height = 100
+    padding_y = 160
+    gap = 60  # 空格間距像素
+
     img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
 
@@ -71,46 +111,44 @@ def generate_image(text):
         img.paste(dark_strip, (0, y), mask=mask_strip)
 
     try:
-        font = ImageFont.truetype(FONT_PATH, size=72)
+        font = ImageFont.truetype(FONT_PATH, size=font_size)
         print(f"✅ 字體載入成功：{FONT_PATH}")
     except Exception as e:
         print(f"❌ 字體載入失敗：{e}")
         font = ImageFont.load_default()
 
-    # 自動依標點斷行，若 Notion 已有 \n 也保留
-    raw_lines = text.split("\n")
-    lines = []
-    for raw in raw_lines:
-        lines.extend(split_lines(raw))
+    lines = smart_split(text)
+    print(f"斷行結果：{lines}")
 
-    line_height = 100
     total_text_h = len(lines) * line_height
     start_y = (H - total_text_h) / 2
-
-    gap = 60  # ✅ 空格位置的像素間距，可以調整這個數字
 
     for i, line in enumerate(lines):
         y = start_y + i * line_height
 
-        # ✅ 依空格切段，分段繪製，中間插入固定間距
+        # 依空格切段，分段繪製（支援間距）
         parts = line.split(" ")
 
-        # 計算整行總寬（各段文字寬 + 間距）
         part_widths = []
         for p in parts:
             bbox = draw.textbbox((0, 0), p, font=font)
             part_widths.append(bbox[2] - bbox[0])
 
         total_w = sum(part_widths) + gap * (len(parts) - 1)
-        x = (W - total_w) / 2  # 整行水平置中起點
+        x = (W - total_w) / 2
 
         for j, part in enumerate(parts):
             draw.text((x + 3, y + 3), part, font=font, fill=(40, 40, 40))
             draw.text((x, y), part, font=font, fill=(235, 235, 235))
-            x += part_widths[j] + gap  # 移到下一段
+            x += part_widths[j] + gap
 
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
+
+def format_caption(text):
+    """caption 跟圖片同邏輯，換行用 \n 串接"""
+    lines = smart_split(text)
+    return "\n".join(lines)
 
 def upload_to_cloudinary():
     result = cloudinary.uploader.upload(IMAGE_FILENAME)
@@ -193,7 +231,11 @@ def main():
         print("❌ 無法取得圖片 URL，終止")
         return
 
-    success = post_to_threads(image_url, caption=text)
+    # ✅ caption 也套用智慧斷行
+    caption = format_caption(text)
+    print(f"caption：\n{caption}")
+
+    success = post_to_threads(image_url, caption=caption)
 
     if success:
         update_status(page_id)

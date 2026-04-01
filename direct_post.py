@@ -47,18 +47,29 @@ def get_pending_posts():
 def smart_split(text, max_chars=24):
     """
     智慧斷行邏輯：
-    - 整段文字 <= max_chars → 一行
-    - 超過 → 依標點斷句，累積不超過 max_chars 才換行
-    - 最多三行，超過只取前三行
+    - 整段文字（去掉空格計算）<= max_chars → 一行
+    - 超過 → 依標點符號或換行符號斷句，每行累積不超過 max_chars
+    - 最多三行
     """
-    break_chars = "，。！？、"
     text = text.strip()
 
-    # 短句直接一行
-    if len(text) <= max_chars:
+    # 用換行符號先切段（Notion 裡有換行的情況）
+    raw_lines = text.split("\n")
+
+    # 如果只有一行且夠短 → 直接一行
+    if len(raw_lines) == 1 and len(text.replace(" ", "")) <= max_chars:
         return [text]
 
-    # 依標點斷句
+    # 如果 Notion 本身就有換行，直接用換行當分行
+    if len(raw_lines) > 1:
+        lines = [l.strip() for l in raw_lines if l.strip()]
+        if len(lines) > 3:
+            print(f"⚠️ 文字超過三行，只取前三行")
+            lines = lines[:3]
+        return lines
+
+    # 單行長文字 → 依標點斷句
+    break_chars = "，。！？、"
     sentences = []
     current = ""
     for char in text:
@@ -69,24 +80,23 @@ def smart_split(text, max_chars=24):
     if current:
         sentences.append(current)
 
-    # 把句子合併成行，每行不超過 max_chars
+    # 把句子合併成行，每行不超過 max_chars（不含空格）
     lines = []
     current_line = ""
     for sentence in sentences:
-        if len(current_line) + len(sentence) <= max_chars:
-            current_line += sentence
+        test = current_line + sentence
+        if len(test.replace(" ", "")) <= max_chars:
+            current_line = test
         else:
             if current_line:
                 lines.append(current_line)
-            # 單句本身超過 max_chars，硬切
-            while len(sentence) > max_chars:
+            while len(sentence.replace(" ", "")) > max_chars:
                 lines.append(sentence[:max_chars])
                 sentence = sentence[max_chars:]
             current_line = sentence
     if current_line:
         lines.append(current_line)
 
-    # 最多三行
     if len(lines) > 3:
         print(f"⚠️ 文字超過三行，只取前三行")
         lines = lines[:3]
@@ -97,7 +107,6 @@ def generate_image(text):
     W, H = 1920, 640
     font_size = 72
     line_height = 100
-    padding_y = 160
     gap = 60  # 空格間距像素
 
     img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
@@ -231,7 +240,6 @@ def main():
         print("❌ 無法取得圖片 URL，終止")
         return
 
-    # ✅ caption 也套用智慧斷行
     caption = format_caption(text)
     print(f"caption：\n{caption}")
 

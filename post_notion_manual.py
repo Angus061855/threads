@@ -7,12 +7,18 @@ NOTION_API_KEY = os.environ["NOTION_API_KEY"]
 NOTION_DATABASE_ID_2 = os.environ["NOTION_DATABASE_ID_2"]
 THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
 THREADS_USER_ID = os.environ["THREADS_USER_ID"]
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 NOTION_HEADERS = {
     "Authorization": f"Bearer {NOTION_API_KEY}",
     "Content-Type": "application/json",
     "Notion-Version": "2022-06-28"
 }
+
+def send_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "text": message})
 
 def get_first_pending_post():
     url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID_2}/query"
@@ -52,7 +58,7 @@ def get_page_content(page):
     segments = re.split(r'§\d+', full_text)
     segments = [s.strip() for s in segments if s.strip()]
 
-    return page_id, segments
+    return page_id, segments, title_text
 
 def create_container(text, reply_to_id=None):
     url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
@@ -78,7 +84,7 @@ def publish_container(container_id):
     print(f"publish_container 回應：{res.status_code} / {res.json()}")
     return res.json().get("id")
 
-def post_thread_series(segments):
+def post_thread_series(segments, title_text):
     previous_post_id = None
 
     for i, text in enumerate(segments):
@@ -87,6 +93,7 @@ def post_thread_series(segments):
         container_id = create_container(text, reply_to_id=previous_post_id)
         if not container_id:
             print(f"第 {i+1} 段建立 container 失敗")
+            send_telegram(f"❌ 串文發布失敗！\n標題：{title_text}\n原因：第 {i+1} 段建立 container 失敗")
             return False
 
         time.sleep(5)
@@ -94,6 +101,7 @@ def post_thread_series(segments):
         post_id = publish_container(container_id)
         if not post_id:
             print(f"第 {i+1} 段發布失敗")
+            send_telegram(f"❌ 串文發布失敗！\n標題：{title_text}\n原因：第 {i+1} 段發布失敗")
             return False
 
         print(f"第 {i+1} 段發布成功，post_id：{post_id}")
@@ -121,8 +129,9 @@ def mark_as_posted(page_id):
 if __name__ == "__main__":
     page = get_first_pending_post()
     if page:
-        page_id, segments = get_page_content(page)
+        page_id, segments, title_text = get_page_content(page)
         print(f"共 {len(segments)} 段，準備發串文...")
-        success = post_thread_series(segments)
+        success = post_thread_series(segments, title_text)
         if success:
             mark_as_posted(page_id)
+            send_telegram(f"✅ 串文發布成功！\n標題：{title_text}\n共 {len(segments)} 段")

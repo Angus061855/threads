@@ -138,6 +138,13 @@ def save_to_notion(topic, post_text, post_id):
     print("Notion 回應狀態：", res.status_code)
     print("Notion 回應內容：", res.json())
 
+# ── 6. 發送 Telegram 通知 ─────────────────────────────
+def send_telegram(message):
+    token = "8718016200:AAFPUjbO1R0bFxdwNIs5NQJyrKlsosqgxGM"
+    chat_id = "225096408"
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    requests.post(url, data={"chat_id": chat_id, "text": message})
+
 # ── 主程式 ────────────────────────────────────────────  ← 改這裡
 if __name__ == "__main__":
     print("📥 撈取已用辯題...")
@@ -158,3 +165,4 @@ if __name__ == "__main__":
     save_to_notion(topic, post_text, post_id)  # ← 改：傳入三個參數
 
     print("✅ 完成！")
+    send_telegram(f"✅ 帳號A 辯題貼文發送完成！\n今天發了：{topic}")

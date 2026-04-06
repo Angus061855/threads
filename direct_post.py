@@ -109,7 +109,7 @@ def generate_image(text):
 
     try:
         font = ImageFont.truetype(FONT_PATH, size=font_size)
-        font_sign = ImageFont.truetype(FONT_PATH, size=32)   # ← 簽名字體
+        font_sign = ImageFont.truetype(FONT_PATH, size=32)
         print(f"✅ 字體載入成功：{FONT_PATH}")
     except Exception as e:
         print(f"❌ 字體載入失敗：{e}")
@@ -144,8 +144,8 @@ def generate_image(text):
     sh = bbox[3] - bbox[1]
     sx = W - sw - sign_margin
     sy = H - sh - sign_margin
-    draw.text((sx + 2, sy + 2), sign_text, font=font_sign, fill=(20, 20, 20))   # 陰影
-    draw.text((sx, sy), sign_text, font=font_sign, fill=(160, 160, 160))         # 本體
+    draw.text((sx + 2, sy + 2), sign_text, font=font_sign, fill=(20, 20, 20))
+    draw.text((sx, sy), sign_text, font=font_sign, fill=(160, 160, 160))
 
     img.save(IMAGE_FILENAME)
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
@@ -153,7 +153,7 @@ def generate_image(text):
 def format_caption(text):
     """caption 換行 + 結尾加簽名"""
     lines = smart_split(text)
-    return "\n".join(lines) + "\n\n- Angus"   # ✅ 文案簽名
+    return "\n".join(lines) + "\n\n- Angus"
 
 def upload_to_cloudinary():
     result = cloudinary.uploader.upload(IMAGE_FILENAME)
@@ -211,6 +211,12 @@ def update_status(page_id):
     })
     print("更新狀態回傳：", res.json())
 
+def send_telegram(message):
+    token = os.environ["TELEGRAM_TOKEN"]
+    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    requests.post(url, data={"chat_id": chat_id, "text": message})
+
 def main():
     posts = get_pending_posts()
 
@@ -233,6 +239,7 @@ def main():
 
     image_url = upload_to_cloudinary()
     if not image_url:
+        send_telegram(f"❌ 發文失敗！\n原因：圖片上傳 Cloudinary 失敗\n內容：{text}")
         print("❌ 無法取得圖片 URL，終止")
         return
 
@@ -244,6 +251,9 @@ def main():
     if success:
         update_status(page_id)
         print("✅ 發文成功，狀態已更新為已發")
+        send_telegram(f"✅ 今天發文成功！\n內容：{text}")
+    else:
+        send_telegram(f"❌ 發文失敗！\n原因：Threads 發布失敗\n內容：{text}")
 
 if __name__ == "__main__":
     main()

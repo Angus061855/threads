@@ -148,27 +148,28 @@ def send_telegram(message):
 
 # ── 主程式 ────────────────────────────────────────────  ← 改這裡
 if __name__ == "__main__":
-    print("📥 撈取已用辯題...")
-    used_topics = get_used_topics()
-    print(f"共 {len(used_topics)} 個已用辯題")
+    try:
+        print("📥 撈取已用辯題...")
+        used_topics = get_used_topics()
+        print(f"共 {len(used_topics)} 個已用辯題")
 
-    print("✍️ 產生新貼文...")
-    post_text = generate_post(used_topics)
-    print("貼文內容：\n", post_text)
+        print("✍️ 產生新貼文...")
+        post_text = generate_post(used_topics)
+        print("貼文內容：\n", post_text)
 
-    print("🚀 發文到 Threads...")
-    result = post_to_threads(post_text)
-    print("發文結果：", result)
+        print("🚀 發文到 Threads...")
+        result = post_to_threads(post_text)
+        print("發文結果：", result)
 
-    topic = extract_topic(post_text)
-    post_id = result.get("id", "")          # ← 新增：取得發文 ID
-    print("📝 記錄辯題到 Notion：", topic)
-    save_to_notion(topic, post_text, post_id)  # ← 改：傳入三個參數
+        topic = extract_topic(post_text)
+        post_id = result.get("id", "")
+        print("📝 記錄辯題到 Notion：", topic)
+        save_to_notion(topic, post_text, post_id)
 
-    print("✅ 完成！")
-    send_telegram(f"✅ 帳號A 辯題貼文發送完成！\n今天發了：{topic}")
+        print("✅ 完成！")
+        send_telegram(f"✅ 帳號A 辯題貼文發送完成！\n今天發了：{topic}")
 
-except Exception as e:
+    except Exception as e:
         error_msg = f"❌ 帳號A 辯題貼文失敗！\n錯誤原因：{str(e)}"
         print(error_msg)
         send_telegram(error_msg)

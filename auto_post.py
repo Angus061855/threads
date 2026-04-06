@@ -167,3 +167,9 @@ if __name__ == "__main__":
 
     print("✅ 完成！")
     send_telegram(f"✅ 帳號A 辯題貼文發送完成！\n今天發了：{topic}")
+
+except Exception as e:
+        error_msg = f"❌ 帳號A 辯題貼文失敗！\n錯誤原因：{str(e)}"
+        print(error_msg)
+        send_telegram(error_msg)
+        raise

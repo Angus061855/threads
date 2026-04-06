@@ -134,4 +134,4 @@ if __name__ == "__main__":
         success = post_thread_series(segments, title_text)
         if success:
             mark_as_posted(page_id)
-            send_telegram(f"✅ 串文發布成功！\n標題：{title_text}\n共 {len(segments)} 段")
+            send_telegram(f"✅ 帳號A 5個串文發布成功！\n標題：{title_text}\n共 {len(segments)} 段")

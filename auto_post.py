@@ -140,10 +140,11 @@ def save_to_notion(topic, post_text, post_id):
 
 # ── 6. 發送 Telegram 通知 ─────────────────────────────
 def send_telegram(message):
-    token = "8718016200:AAFPUjbO1R0bFxdwNIs5NQJyrKlsosqgxGM"
-    chat_id = "225096408"
+    token = os.environ["TELEGRAM_TOKEN"]
+    chat_id = os.environ["TELEGRAM_CHAT_ID"]
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    requests.post(url, data={"chat_id": chat_id, "text": message})
+    res = requests.post(url, data={"chat_id": chat_id, "text": message})
+    print("Telegram 回應：", res.status_code, res.json())
 
 # ── 主程式 ────────────────────────────────────────────  ← 改這裡
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ THREADS_ACCESS_TOKEN = os.environ["THREADS_ACCESS_TOKEN"]
 CLOUDINARY_CLOUD_NAME = os.environ["CLOUDINARY_CLOUD_NAME"]
 CLOUDINARY_API_KEY = os.environ["CLOUDINARY_API_KEY"]
 CLOUDINARY_API_SECRET = os.environ["CLOUDINARY_API_SECRET"]
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 cloudinary.config(
     cloud_name=CLOUDINARY_CLOUD_NAME,
@@ -100,7 +102,6 @@ def generate_image(text):
     img = Image.open(os.path.join(BASE_DIR, "background.png")).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
 
-    # 暗角漸層
     for y in range(H):
         darkness = int(100 * ((y / H) ** 2))
         dark_strip = Image.new("RGB", (W, 1), (0, 0, 0))
@@ -136,7 +137,6 @@ def generate_image(text):
             draw.text((x, y), part, font=font, fill=(235, 235, 235))
             x += part_widths[j] + gap
 
-    # ✅ 右下角簽名
     sign_text = "- Angus"
     sign_margin = 40
     bbox = draw.textbbox((0, 0), sign_text, font=font_sign)
@@ -151,7 +151,6 @@ def generate_image(text):
     print(f"✅ 圖片已生成：{IMAGE_FILENAME}")
 
 def format_caption(text):
-    """caption 換行 + 結尾加簽名"""
     lines = smart_split(text)
     return "\n".join(lines) + "\n\n- Angus"
 
@@ -212,10 +211,8 @@ def update_status(page_id):
     print("更新狀態回傳：", res.json())
 
 def send_telegram(message):
-    token = os.environ["TELEGRAM_TOKEN"]
-    chat_id = os.environ["TELEGRAM_CHAT_ID"]
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    requests.post(url, data={"chat_id": chat_id, "text": message})
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "text": message})
 
 def main():
     posts = get_pending_posts()

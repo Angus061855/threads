@@ -167,10 +167,10 @@ if __name__ == "__main__":
         save_to_notion(topic, post_text, post_id)
 
         print("✅ 完成！")
-        send_telegram(f"✅ 帳號A 1 辯題貼文發送完成！\n今天發了：{topic}")
+        send_telegram(f"✅ 帳號A 1 給主題自動發 辯題貼文發送完成！\n今天發了：{topic}")
 
     except Exception as e:
-        error_msg = f"❌ 帳號A 1 辯題貼文失敗！\n錯誤原因：{str(e)}"
+        error_msg = f"❌ 帳號A 1 給主題自動發 辯題貼文失敗！\n錯誤原因：{str(e)}"
         print(error_msg)
         send_telegram(error_msg)
         raise

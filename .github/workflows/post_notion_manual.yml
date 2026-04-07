@@ -3,7 +3,7 @@ name: Post Notion Manual Content
 on:
   schedule:
     - cron: '0 10 * * *'   # UTC 10:00 = 台灣 18:00
-    - cron: '0 13 * * *'   # UTC 13:00 = 台灣 21:00
+    - cron: '0 15 * * *'   # UTC 15:00 = 台灣 23:00
   workflow_dispatch:
 
 jobs:

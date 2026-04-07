@@ -3,7 +3,7 @@ name: Direct Post to Threads
 on:
   schedule:
     - cron: '0 11 * * *'   # 台灣時間 19:00
-    - cron: '0 14 * * *'   # 台灣時間 22:00
+    - cron: '0 13 * * *'   # 台灣時間 21:00
   workflow_dispatch:
 
 jobs:

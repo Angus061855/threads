@@ -1,4 +1,4 @@
-name: Auto Post to Threads 每日辯題自動發文
+name: Auto Post to Threads 辯題發文
 
 on:
   workflow_dispatch:

@@ -1,6 +1,7 @@
 import os
 import requests
 import datetime
+import time
 from google import genai
 
 # ── 環境變數 ──────────────────────────────────────────
@@ -89,6 +90,24 @@ def extract_topic(post_text):
                     return lines[j].strip()
     return lines[1].strip() if len(lines) > 1 else "未知辯題"
 
+# ── 3b. 把貼文拆成兩段 ───────────────────────────────
+def split_post(post_text):
+    lines = post_text.strip().split("\n")
+
+    topic_end_idx = 0
+    for i, line in enumerate(lines):
+        if "今日辯題" in line:
+            for j in range(i + 1, len(lines)):
+                if lines[j].strip():
+                    topic_end_idx = j
+                    break
+            break
+
+    part1 = "\n".join(lines[:topic_end_idx + 1]).strip()
+    part2 = "\n".join(lines[topic_end_idx + 1:]).strip()
+
+    return part1, part2
+
 # ── 4. 發文到 Threads ────────────────────────────────
 def post_to_threads(text):
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
@@ -108,7 +127,7 @@ def post_to_threads(text):
     }).json()
     return pub_res
 
-# ── 5. 把新辯題記錄進 Notion（含所有欄位）─────────────  ← 改這裡
+# ── 5. 把新辯題記錄進 Notion ─────────────────────────
 def save_to_notion(topic, post_text, post_id):
     url = "https://api.notion.com/v1/pages"
     headers = {
@@ -146,7 +165,7 @@ def send_telegram(message):
     res = requests.post(url, data={"chat_id": chat_id, "text": message})
     print("Telegram 回應：", res.status_code, res.json())
 
-# ── 主程式 ────────────────────────────────────────────  ← 改這裡
+# ── 主程式 ────────────────────────────────────────────
 if __name__ == "__main__":
     try:
         print("📥 撈取已用辯題...")
@@ -157,17 +176,16 @@ if __name__ == "__main__":
         post_text = generate_post(used_topics)
         print("貼文內容：\n", post_text)
 
-        print("🚀 發文到 Threads（第一則：辯題）...")
         part1, part2 = split_post(post_text)
         print("第一則：\n", part1)
         print("第二則：\n", part2)
 
+        print("🚀 發文到 Threads（第一則：辯題）...")
         result = post_to_threads(part1)
         print("第一則發文結果：", result)
 
         if part2:
-            import time
-            time.sleep(2)  # 稍等一下再發第二則
+            time.sleep(2)
             print("🚀 發文到 Threads（第二則：內容）...")
             result2 = post_to_threads(part2)
             print("第二則發文結果：", result2)

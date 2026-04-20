@@ -130,6 +130,10 @@ def post_to_threads(text, reply_to_id=None):
         "creation_id": creation_id,
         "access_token": THREADS_TOKEN,
     }).json()
+
+    if "id" not in pub_res:
+        raise Exception(f"發布失敗：{pub_res}")
+
     return pub_res
 
 # ── 5. 把新辯題記錄進 Notion ─────────────────────────
@@ -190,9 +194,11 @@ if __name__ == "__main__":
         print("貼文發文結果：", result)
 
         post_id = result.get("id", "")
+        print("貼文 ID：", post_id)
 
         if part2 and post_id:
-            time.sleep(2)
+            print("⏳ 等待貼文上線...")
+            time.sleep(5)
             print("💬 發留言到 Threads...")
             result2 = post_to_threads(part2, reply_to_id=post_id)
             print("留言發文結果：", result2)

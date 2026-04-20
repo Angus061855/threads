@@ -108,14 +108,18 @@ def split_post(post_text):
 
     return part1, part2
 
-# ── 4. 發文到 Threads ────────────────────────────────
-def post_to_threads(text):
+# ── 4. 發文到 Threads（支援留言回覆）────────────────
+def post_to_threads(text, reply_to_id=None):
     create_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
-    res = requests.post(create_url, data={
+    data = {
         "media_type": "TEXT",
         "text": text,
         "access_token": THREADS_TOKEN,
-    }).json()
+    }
+    if reply_to_id:
+        data["reply_to_id"] = reply_to_id
+
+    res = requests.post(create_url, data=data).json()
     creation_id = res.get("id")
     if not creation_id:
         raise Exception(f"建立 container 失敗：{res}")
@@ -178,20 +182,21 @@ if __name__ == "__main__":
 
         part1, part2 = split_post(post_text)
         print("第一則：\n", part1)
-        print("第二則：\n", part2)
+        print("留言：\n", part2)
 
-        print("🚀 發文到 Threads（第一則：辯題）...")
+        print("🚀 發文到 Threads（貼文：辯題）...")
         result = post_to_threads(part1)
-        print("第一則發文結果：", result)
+        print("貼文發文結果：", result)
 
-        if part2:
+        post_id = result.get("id", "")
+
+        if part2 and post_id:
             time.sleep(2)
-            print("🚀 發文到 Threads（第二則：內容）...")
-            result2 = post_to_threads(part2)
-            print("第二則發文結果：", result2)
+            print("💬 發留言到 Threads...")
+            result2 = post_to_threads(part2, reply_to_id=post_id)
+            print("留言發文結果：", result2)
 
         topic = extract_topic(post_text)
-        post_id = result.get("id", "")
         print("📝 記錄辯題到 Notion：", topic)
         save_to_notion(topic, post_text, post_id)
 

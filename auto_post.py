@@ -157,9 +157,20 @@ if __name__ == "__main__":
         post_text = generate_post(used_topics)
         print("貼文內容：\n", post_text)
 
-        print("🚀 發文到 Threads...")
-        result = post_to_threads(post_text)
-        print("發文結果：", result)
+        print("🚀 發文到 Threads（第一則：辯題）...")
+        part1, part2 = split_post(post_text)
+        print("第一則：\n", part1)
+        print("第二則：\n", part2)
+
+        result = post_to_threads(part1)
+        print("第一則發文結果：", result)
+
+        if part2:
+            import time
+            time.sleep(2)  # 稍等一下再發第二則
+            print("🚀 發文到 Threads（第二則：內容）...")
+            result2 = post_to_threads(part2)
+            print("第二則發文結果：", result2)
 
         topic = extract_topic(post_text)
         post_id = result.get("id", "")

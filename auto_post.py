@@ -37,7 +37,8 @@ def get_used_topics():
 def generate_post(used_topics):
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    used_str = "\n".join(f"- {t}" for t in used_topics) if used_topics else "（目前沒有已用辯題）"
+    recent_topics = used_topics[-30:] if len(used_topics) > 30 else used_topics
+    used_str = "\n".join(f"- {t}" for t in recent_topics) if recent_topics else "（目前沒有已用辯題）"
 
     prompt = f"""
 你是一位擅長寫感情辯題貼文的文案寫手。

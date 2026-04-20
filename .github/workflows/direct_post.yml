@@ -1,4 +1,4 @@
-name: Direct Post to Threads
+name: Direct Post to Threads 圖片發文
 
 on:
   schedule:

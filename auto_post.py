@@ -120,21 +120,41 @@ def post_to_threads(text, reply_to_id=None):
     if reply_to_id:
         data["reply_to_id"] = reply_to_id
 
-    res = requests.post(create_url, data=data).json()
+    # 建立 container
+    res = requests.post(create_url, data=data, timeout=30).json()
     creation_id = res.get("id")
     if not creation_id:
         raise Exception(f"建立 container 失敗：{res}")
 
+    # 輪詢等待 container 狀態變成 FINISHED
+    status_url = f"https://graph.threads.net/v1.0/{creation_id}"
+    for attempt in range(10):
+        time.sleep(5)
+        status_res = requests.get(status_url, params={
+            "fields": "status,error_message",
+            "access_token": THREADS_TOKEN,
+        }, timeout=30).json()
+        status = status_res.get("status", "")
+        print(f"  container 狀態（第{attempt+1}次）：{status}")
+        if status == "FINISHED":
+            break
+        if status == "ERROR":
+            raise Exception(f"Container 發生錯誤：{status_res.get('error_message')}")
+    else:
+        raise Exception("Container 等待超時，狀態一直不是 FINISHED")
+
+    # 發布
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     pub_res = requests.post(publish_url, data={
         "creation_id": creation_id,
         "access_token": THREADS_TOKEN,
-    }).json()
+    }, timeout=30).json()
 
     if "id" not in pub_res:
         raise Exception(f"發布失敗：{pub_res}")
 
     return pub_res
+
 
 # ── 5. 把新辯題記錄進 Notion ─────────────────────────
 def save_to_notion(topic, post_text, post_id):
@@ -198,7 +218,7 @@ if __name__ == "__main__":
 
         if part2 and post_id:
             print("⏳ 等待貼文上線...")
-            time.sleep(5)
+            time.sleep(15)
             print("💬 發留言到 Threads...")
             result2 = post_to_threads(part2, reply_to_id=post_id)
             print("留言發文結果：", result2)

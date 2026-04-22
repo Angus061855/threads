@@ -248,7 +248,7 @@ def main():
     if success:
         update_status(page_id)
         print("✅ 發文成功，狀態已更新為已發")
-        send_telegram(f"✅ angus 圖片發文成功！\n內容：{text}")
+        send_telegram(f"✅ angus threads 圖片發文成功！\n內容：{text}")
     else:
         send_telegram(f"❌ angus 圖片發文失敗！\n原因：Threads 發布失敗\n內容：{text}")
 

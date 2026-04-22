@@ -74,7 +74,7 @@ def create_container(text, reply_to_id=None):
     container_id = res.json().get("id")
     return container_id
 
-def publish_container(container_id):
+def publish_container(container_id, segment_index, max_retries=3):
     url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     payload = {
         "creation_id": container_id,
@@ -82,7 +82,17 @@ def publish_container(container_id):
     }
     res = requests.post(url, data=payload)
     print(f"publish_container 回應：{res.status_code} / {res.json()}")
-    return res.json().get("id")
+    
+    data = res.json()
+    post_id = data.get("id")
+    
+    # 失敗就回傳 None，不重試
+    if res.status_code != 200 or not post_id:
+        error_msg = data.get("error", {}).get("message", "未知錯誤")
+        print(f"發布失敗：{error_msg}")
+        return None, error_msg
+    
+    return post_id, None
 
 def post_thread_series(segments, title_text):
     previous_post_id = None
@@ -92,16 +102,18 @@ def post_thread_series(segments, title_text):
 
         container_id = create_container(text, reply_to_id=previous_post_id)
         if not container_id:
-            print(f"第 {i+1} 段建立 container 失敗")
-            send_telegram(f"❌ 串文發布失敗！\n標題：{title_text}\n原因：第 {i+1} 段建立 container 失敗")
+            msg = f"❌ 串文發布中斷！\n標題：{title_text}\n第 {i+1}/{len(segments)} 段建立失敗\n前 {i} 段已成功發出"
+            print(msg)
+            send_telegram(msg)
             return False
 
         time.sleep(5)
 
-        post_id = publish_container(container_id)
+        post_id, error = publish_container(container_id)
         if not post_id:
-            print(f"第 {i+1} 段發布失敗")
-            send_telegram(f"❌ 串文發布失敗！\n標題：{title_text}\n原因：第 {i+1} 段發布失敗")
+            msg = f"❌ 串文發布中斷！\n標題：{title_text}\n第 {i+1}/{len(segments)} 段發布失敗\n前 {i} 段已成功發出\n錯誤：{error}"
+            print(msg)
+            send_telegram(msg)
             return False
 
         print(f"第 {i+1} 段發布成功，post_id：{post_id}")
@@ -134,4 +146,4 @@ if __name__ == "__main__":
         success = post_thread_series(segments, title_text)
         if success:
             mark_as_posted(page_id)
-            send_telegram(f"✅ angus threads 5個串文發布成功！\n標題：{title_text}\n共 {len(segments)} 段")
+            send_telegram(f"✅ Threads 串文發布成功！\n標題：{title_text}\n共 {len(segments)} 段全部完成")

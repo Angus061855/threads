@@ -231,7 +231,7 @@ if __name__ == "__main__":
         send_telegram(f"✅ angus threads 辯題貼文發送完成！\n今天發了：{topic}")
 
     except Exception as e:
-        error_msg = f"❌ angus 辯題貼文失敗！\n錯誤原因：{str(e)}"
+        error_msg = f"❌ angus threads 辯題貼文失敗！\n錯誤原因：{str(e)}"
         print(error_msg)
         send_telegram(error_msg)
         raise

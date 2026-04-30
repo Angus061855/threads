@@ -109,7 +109,7 @@ def post_thread_series(segments, title_text):
 
         time.sleep(5)
 
-        post_id, error = publish_container(container_id)
+        post_id, error = publish_container(container_id, i)
         if not post_id:
             msg = f"❌ 串文發布中斷！\n標題：{title_text}\n第 {i+1}/{len(segments)} 段發布失敗\n前 {i} 段已成功發出\n錯誤：{error}"
             print(msg)
